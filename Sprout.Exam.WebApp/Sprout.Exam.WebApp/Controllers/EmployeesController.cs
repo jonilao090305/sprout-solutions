@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Sprout.Exam.Business.DataTransferObjects;
 using Sprout.Exam.Common.Enums;
+using Sprout.Exam.WebApp.Models;
 
 namespace Sprout.Exam.WebApp.Controllers
 {
@@ -15,6 +16,10 @@ namespace Sprout.Exam.WebApp.Controllers
     [ApiController]
     public class EmployeesController : ControllerBase
     {
+        private const double taxRate = 0.12;
+        private const double regularSalary = 20000;
+        private const double contractualSalary = 500;
+        private const int numWorkDays = 22;
 
         /// <summary>
         /// Refactor this method to go through proper layers and fetch from the DB.
@@ -100,7 +105,7 @@ namespace Sprout.Exam.WebApp.Controllers
         /// <param name="workedDays"></param>
         /// <returns></returns>
         [HttpPost("{id}/calculate")]
-        public async Task<IActionResult> Calculate(int id,decimal absentDays,decimal workedDays)
+        public async Task<IActionResult> Calculate(int id, [FromBody] CalculatePayload pl)
         {
             var result = await Task.FromResult(StaticEmployees.ResultList.FirstOrDefault(m => m.Id == id));
 
@@ -109,14 +114,27 @@ namespace Sprout.Exam.WebApp.Controllers
             return type switch
             {
                 EmployeeType.Regular =>
-                    //create computation for regular.
-                    Ok(25000),
+                    Ok(ComputeRegularSalary(pl.AbsentDays)),
                 EmployeeType.Contractual =>
-                    //create computation for contractual.
-                    Ok(20000),
+                    Ok(ComputeContractualSalary(pl.WorkedDays)),
                 _ => NotFound("Employee Type not found")
             };
 
+        }
+
+        private double ComputeRegularSalary(decimal absentDays)
+        {
+            var absenceDeduction = (Decimal.ToDouble(absentDays) / numWorkDays) * regularSalary;
+            var taxDeduction = regularSalary * taxRate;
+            var computedSalary = regularSalary - absenceDeduction - taxDeduction;
+
+            return Math.Round(computedSalary, 2);
+        }
+
+        private double ComputeContractualSalary(decimal workedDays)
+        {
+            var computedSalary = contractualSalary * Decimal.ToDouble(workedDays);
+            return Math.Round(computedSalary, 2);
         }
 
     }
